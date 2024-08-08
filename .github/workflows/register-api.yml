@@ -1,39 +1,56 @@
 name: Register API Definition to Azure API Center
 on:
-  workflow_dispatch:
-
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+    paths:
+      - "src/**/*.yaml"
 permissions:
-  id-token: write
   contents: read
-
+  pull-requests: read
+env:
+  # set this to your Azure API Center resource group name
+  RESOURCE_GROUP: api-center
+  # set this to your Azure API Center service name
+  SERVICE_NAME: api-center-demo
 jobs:
-  deploy:
+  register:
     runs-on: ubuntu-latest
-    # Please configure the environment name required in federated identity credential
-    # https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#creating-an-environment
     environment: production
     steps:
-      - uses: actions/checkout@v4
-
-      # https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure
-      # https://github.com/marketplace/actions/azure-login#login-with-openid-connect-oidc-recommended
+      - uses: actions/checkout@v2
+    
+      - name: Get specification file path in the PR
+        id: get-file-location
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pull_number = context.payload.pull_request.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const files = await github.rest.pulls.listFiles({
+              owner,
+              repo,
+              pull_number
+            });
+            if (files.data.length === 1) {
+              const filename = files.data[0].filename;
+              core.exportVariable('API_FILE_LOCATION', hfilename);
+              console.log(`API_FILE_LOCATION: ${{ env.API_FILE_LOCATION }}`);
+            }
+            else {
+              console.log('The PR does not add exactly one specification file.');
+            }
       - name: Azure login
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
-
-      # Please create following environment variables to deploy to azure resource: RESOURCE_GROUP, RESOURCE_NAME, FILE_LOCATION
-      # RESOURCE_GROUP: Azure Resource Group name, please ensure the resource group already created.
-      # RESOURCE_NAME: Azure API Center resource name, please ensure the API Center resource already created.
-      # FILE_LOCATION: API Definition file location
-      # https://docs.github.com/en/actions/learn-github-actions/variables#creating-configuration-variables-for-a-repository
-      - name: Deploy to API Center
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Register to API Center
         uses: azure/CLI@v2
         with:
           azcliversion: latest
           inlineScript: |
-            az extension add --name apic-extension --version 1.0.0
-            az apic api register -g ${{ vars.RESOURCE_GROUP }} -n ${{ vars.RESOURCE_NAME }} --api-location ${{ vars.FILE_LOCATION }}
+            az apic api register -g ${{ env.RESOURCE_GROUP }} -n ${{ env.SERVICE_NAME }} --api-location ${{ env.API_FILE_LOCATION }}
