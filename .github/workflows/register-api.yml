@@ -37,7 +37,7 @@ jobs:
             });
             if (files.data.length === 1) {
               const filename = files.data[0].filename;
-              core.exportVariable('API_FILE_LOCATION', hfilename);
+              core.exportVariable('API_FILE_LOCATION', filename);
               console.log(`API_FILE_LOCATION: ${{ env.API_FILE_LOCATION }}`);
             }
             else {
