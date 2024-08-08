@@ -2,7 +2,7 @@
 openapi: "3.0.0"
 info:
   version: "3.0.0"
-  title: "Simple Flask API"
+  title: "Simple Flask API - V3"
 paths:
   /:
     get:
